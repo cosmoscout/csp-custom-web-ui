@@ -1,0 +1,63 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                               This file is part of CosmoScout VR                               //
+//      and may be used under the terms of the MIT license. See the LICENSE file for details.     //
+//                        Copyright: (c) 2019 German Aerospace Center (DLR)                       //
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#include "Plugin.hpp"
+
+#include "../../../src/cs-core/GuiManager.hpp"
+#include "../../../src/cs-core/InputManager.hpp"
+#include "../../../src/cs-core/SolarSystem.hpp"
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+EXPORT_FN cs::core::PluginBase* create() {
+  return new csp::customwebui::Plugin;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+EXPORT_FN void destroy(cs::core::PluginBase* pluginBase) {
+  delete pluginBase;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+namespace csp::customwebui {
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void from_json(const nlohmann::json& j, Plugin::Settings::SideBarItem& o) {
+  o.mName = cs::core::parseProperty<std::string>("name", j);
+  o.mIcon = cs::core::parseProperty<std::string>("icon", j);
+  o.mHTML = cs::core::parseProperty<std::string>("html", j);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void from_json(const nlohmann::json& j, Plugin::Settings& o) {
+  cs::core::parseSection("csp-custom-web-ui", [&] {
+    o.mSideBarItems = cs::core::parseVector<Plugin::Settings::SideBarItem>("sidebar-items", j);
+  });
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Plugin::init() {
+
+  mPluginSettings = mAllSettings->mPlugins.at("csp-custom-web-ui");
+
+  for (auto const& settings : mPluginSettings.mSideBarItems) {
+    mGuiManager->addPluginTabToSideBar(settings.mName, settings.mIcon, settings.mHTML);
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Plugin::deInit() {
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+} // namespace csp::customwebui
