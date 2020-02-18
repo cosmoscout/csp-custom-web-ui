@@ -31,6 +31,19 @@ The given values are just some examples, feel free to add your own items:
           "icon": "library_music",
           "html": "<iframe width='100%' height='166' scrolling='no' frameborder='no' allow='autoplay' src='https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/6663540&color=%2378a2a2&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true'></iframe>"
         }
+      ],
+      "space-items": [
+        {
+          "center": "Earth",
+          "icon": "IAU_Earth",
+          "longitude": 14,
+          "latitude": 51,
+          "elevation": 100,
+          "scale": 1000,
+          "width": 800,
+          "height": 600,
+          "html": "<iframe width='100%' height='100%' src='https://www.dlr.de' frameborder='0'></iframe>"
+        }
       ]
     },
     ...
