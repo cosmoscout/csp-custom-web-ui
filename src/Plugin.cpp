@@ -37,40 +37,54 @@ namespace csp::customwebui {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void from_json(const nlohmann::json& j, Plugin::Settings::SideBarItem& o) {
-  o.mName = cs::core::parseProperty<std::string>("name", j);
-  o.mIcon = cs::core::parseProperty<std::string>("icon", j);
-  o.mHTML = cs::core::parseProperty<std::string>("html", j);
+void from_json(nlohmann::json const& j, Plugin::Settings::SideBarItem& o) {
+  cs::core::Settings::deserialize(j, "name", o.mName);
+  cs::core::Settings::deserialize(j, "icon", o.mIcon);
+  cs::core::Settings::deserialize(j, "html", o.mHTML);
+}
+
+void to_json(nlohmann::json& j, Plugin::Settings::SideBarItem const& o) {
+  cs::core::Settings::serialize(j, "name", o.mName);
+  cs::core::Settings::serialize(j, "icon", o.mIcon);
+  cs::core::Settings::serialize(j, "html", o.mHTML);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void from_json(const nlohmann::json& j, Plugin::Settings::SpaceItem& o) {
-  o.mCenter    = cs::core::parseProperty<std::string>("center", j);
-  o.mFrame     = cs::core::parseProperty<std::string>("icon", j);
-  o.mLongitude = cs::core::parseProperty<double>("longitude", j);
-  o.mLatitude  = cs::core::parseProperty<double>("latitude", j);
-  o.mElevation = cs::core::parseProperty<double>("elevation", j);
-  o.mScale     = cs::core::parseProperty<double>("scale", j);
-  o.mWidth     = cs::core::parseProperty<uint32_t>("width", j);
-  o.mHeight    = cs::core::parseProperty<uint32_t>("height", j);
-  o.mHTML      = cs::core::parseProperty<std::string>("html", j);
+void from_json(nlohmann::json const& j, Plugin::Settings::SpaceItem& o) {
+  cs::core::Settings::deserialize(j, "center", o.mCenter);
+  cs::core::Settings::deserialize(j, "icon", o.mFrame);
+  cs::core::Settings::deserialize(j, "longitude", o.mLongitude);
+  cs::core::Settings::deserialize(j, "latitude", o.mLatitude);
+  cs::core::Settings::deserialize(j, "elevation", o.mElevation);
+  cs::core::Settings::deserialize(j, "scale", o.mScale);
+  cs::core::Settings::deserialize(j, "width", o.mWidth);
+  cs::core::Settings::deserialize(j, "height", o.mHeight);
+  cs::core::Settings::deserialize(j, "html", o.mHTML);
+}
+
+void to_json(nlohmann::json& j, Plugin::Settings::SpaceItem const& o) {
+  cs::core::Settings::serialize(j, "center", o.mCenter);
+  cs::core::Settings::serialize(j, "icon", o.mFrame);
+  cs::core::Settings::serialize(j, "longitude", o.mLongitude);
+  cs::core::Settings::serialize(j, "latitude", o.mLatitude);
+  cs::core::Settings::serialize(j, "elevation", o.mElevation);
+  cs::core::Settings::serialize(j, "scale", o.mScale);
+  cs::core::Settings::serialize(j, "width", o.mWidth);
+  cs::core::Settings::serialize(j, "height", o.mHeight);
+  cs::core::Settings::serialize(j, "html", o.mHTML);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void from_json(const nlohmann::json& j, Plugin::Settings& o) {
-  cs::core::parseSection("csp-custom-web-ui", [&] {
-    auto iter = j.find("sidebar-items");
-    if (iter != j.end()) {
-      o.mSideBarItems = cs::core::parseVector<Plugin::Settings::SideBarItem>("sidebar-items", j);
-    }
+void from_json(nlohmann::json const& j, Plugin::Settings& o) {
+  cs::core::Settings::deserialize(j, "sidebar-items", o.mSideBarItems);
+  cs::core::Settings::deserialize(j, "space-items", o.mSpaceItems);
+}
 
-    iter = j.find("space-items");
-    if (iter != j.end()) {
-      o.mSpaceItems = cs::core::parseVector<Plugin::Settings::SpaceItem>("space-items", j);
-    }
-  });
+void to_json(nlohmann::json& j, Plugin::Settings const& o) {
+  cs::core::Settings::serialize(j, "sidebar-items", o.mSideBarItems);
+  cs::core::Settings::serialize(j, "space-items", o.mSpaceItems);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
