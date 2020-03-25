@@ -154,7 +154,7 @@ void Plugin::update() {
 
   for (auto& item : mSpaceItems) {
     cs::core::SolarSystem::scaleRelativeToObserver(*item.mAnchor, mSolarSystem->getObserver(),
-        simulationTime, item.mScale, mGraphicsEngine->pWidgetScale.get());
+        simulationTime, item.mScale, mAllSettings->mGraphics.pWidgetScale.get());
     cs::core::SolarSystem::turnToObserver(
         *item.mAnchor, mSolarSystem->getObserver(), simulationTime, false);
   }
