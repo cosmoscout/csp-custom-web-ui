@@ -19,6 +19,8 @@
 #include <VistaKernel/VistaSystem.h>
 #include <VistaKernelOpenSGExt/VistaOpenSGMaterialTools.h>
 
+#include <memory>
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 EXPORT_FN cs::core::PluginBase* create() {
@@ -122,15 +124,15 @@ void Plugin::init() {
 
     mSolarSystem->registerAnchor(item.mAnchor);
 
-    item.mGuiArea.reset(new cs::gui::WorldSpaceGuiArea(settings.mWidth, settings.mHeight));
-    item.mGuiItem.reset(
-        new cs::gui::GuiItem("file://../share/resources/gui/custom-web-ui-simple.html"));
+    item.mGuiArea = std::make_unique<cs::gui::WorldSpaceGuiArea>(settings.mWidth, settings.mHeight);
+    item.mGuiItem = std::make_unique<cs::gui::GuiItem>(
+        "file://../share/resources/gui/custom-web-ui-simple.html");
 
     item.mTransform = pSG->NewTransformNode(item.mAnchor.get());
     item.mTransform->Scale(
-        0.001f * item.mGuiArea->getWidth(), 0.001f * item.mGuiArea->getHeight(), 1.f);
+        0.001F * item.mGuiArea->getWidth(), 0.001F * item.mGuiArea->getHeight(), 1.F);
     item.mTransform->Rotate(
-        VistaAxisAndAngle(VistaVector3D(0.0, 1.0, 0.0), -glm::pi<float>() / 2.f));
+        VistaAxisAndAngle(VistaVector3D(0.0, 1.0, 0.0), -glm::pi<float>() / 2.F));
     item.mGuiArea->addItem(item.mGuiItem.get());
     item.mGuiArea->setUseLinearDepthBuffer(true);
     item.mGuiNode = pSG->NewOpenGLNode(item.mTransform, item.mGuiArea.get());
