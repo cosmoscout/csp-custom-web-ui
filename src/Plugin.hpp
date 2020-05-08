@@ -43,6 +43,8 @@ class Plugin : public cs::core::PluginBase {
 
       /// The actual HTML code to add. You can use an <iframe> for example.
       std::string mHTML;
+
+      bool operator==(SideBarItem const& other) const;
     };
 
     /// These items will be placed somewhere on a celestial body.
@@ -66,10 +68,15 @@ class Plugin : public cs::core::PluginBase {
 
       /// The actual HTML code to add. You can use an <iframe> for example.
       std::string mHTML;
+
+      bool operator==(SpaceItem const& other) const;
     };
 
     std::vector<SideBarItem> mSideBarItems;
     std::vector<SpaceItem>   mSpaceItems;
+
+    bool operator!=(Settings const& other) const;
+    bool operator==(Settings const& other) const;
   };
 
   void init() override;
@@ -77,18 +84,24 @@ class Plugin : public cs::core::PluginBase {
   void deInit() override;
 
  private:
+  void onLoad();
+  void unload(Settings const& pluginSettings);
+
   struct SpaceItem {
-    VistaOpenGLNode*                                mGuiNode   = nullptr;
-    VistaTransformNode*                             mTransform = nullptr;
-    std::shared_ptr<cs::scene::CelestialAnchorNode> mAnchor;
     std::unique_ptr<cs::gui::WorldSpaceGuiArea>     mGuiArea;
     std::unique_ptr<cs::gui::GuiItem>               mGuiItem;
+    std::shared_ptr<cs::scene::CelestialAnchorNode> mAnchor;
+    std::unique_ptr<VistaTransformNode>             mTransform;
+    std::unique_ptr<VistaOpenGLNode>                mGuiNode;
     double                                          mScale = 1.0;
   };
 
   Settings mPluginSettings;
 
   std::list<SpaceItem> mSpaceItems;
+
+  int mOnLoadConnection = -1;
+  int mOnSaveConnection = -1;
 };
 
 } // namespace csp::customwebui

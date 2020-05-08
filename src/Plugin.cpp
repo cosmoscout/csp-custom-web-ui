@@ -5,6 +5,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "Plugin.hpp"
+#include "logger.hpp"
 
 #include "../../../src/cs-core/GraphicsEngine.hpp"
 #include "../../../src/cs-core/GuiManager.hpp"
@@ -91,62 +92,40 @@ void to_json(nlohmann::json& j, Plugin::Settings const& o) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+bool Plugin::Settings::SideBarItem::operator==(Plugin::Settings::SideBarItem const& other) const {
+  return mName == other.mName && mIcon == other.mIcon && mHTML == other.mHTML;
+}
+
+bool Plugin::Settings::SpaceItem::operator==(Plugin::Settings::SpaceItem const& other) const {
+  return mCenter == other.mCenter && mFrame == other.mFrame && mLongitude == other.mLongitude &&
+         mLatitude == other.mLatitude && mElevation == other.mElevation && mScale == other.mScale &&
+         mWidth == other.mWidth && mHeight == other.mHeight && mHTML == other.mHTML;
+}
+
+bool Plugin::Settings::operator==(Plugin::Settings const& other) const {
+  return mSideBarItems == other.mSideBarItems && mSpaceItems == other.mSpaceItems;
+}
+
+bool Plugin::Settings::operator!=(Plugin::Settings const& other) const {
+  return !(*this == other);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Plugin::init() {
 
+  logger().info("Loading plugin...");
+
   // First parse the settings.
-  mPluginSettings = mAllSettings->mPlugins.at("csp-custom-web-ui");
+  mOnLoadConnection = mAllSettings->onLoad().connect([this]() { onLoad(); });
 
-  // Then add all sidebar tabs.
-  for (auto const& settings : mPluginSettings.mSideBarItems) {
-    mGuiManager->addPluginTabToSideBar(settings.mName, settings.mIcon, settings.mHTML);
-  }
+  mOnSaveConnection = mAllSettings->onSave().connect(
+      [this]() { mAllSettings->mPlugins["csp-custom-web-ui"] = mPluginSettings; });
 
-  // Then add all space items.
-  auto pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
-  for (auto const& settings : mPluginSettings.mSpaceItems) {
-    mSpaceItems.resize(mSpaceItems.size() + 1);
-    SpaceItem& item = mSpaceItems.back();
+  // Load initial settings.
+  onLoad();
 
-    item.mAnchor = std::make_shared<cs::scene::CelestialAnchorNode>(
-        pSG->GetRoot(), pSG->GetNodeBridge(), "", settings.mCenter, settings.mFrame);
-    item.mScale = settings.mScale;
-
-    glm::dvec2 lngLat(settings.mLongitude, settings.mLatitude);
-    lngLat        = cs::utils::convert::toRadians(lngLat);
-    double height = 0.0;
-    auto   parent = mSolarSystem->getBody(settings.mCenter);
-    if (parent) {
-      height = parent->getHeight(lngLat);
-    }
-    auto radii = mSolarSystem->getRadii(settings.mCenter);
-    item.mAnchor->setAnchorPosition(
-        cs::utils::convert::toCartesian(lngLat, radii[0], radii[0], height));
-
-    mSolarSystem->registerAnchor(item.mAnchor);
-
-    item.mGuiArea = std::make_unique<cs::gui::WorldSpaceGuiArea>(settings.mWidth, settings.mHeight);
-    item.mGuiItem = std::make_unique<cs::gui::GuiItem>(
-        "file://../share/resources/gui/custom-web-ui-simple.html");
-
-    item.mTransform = pSG->NewTransformNode(item.mAnchor.get());
-    item.mTransform->Scale(
-        0.001F * item.mGuiArea->getWidth(), 0.001F * item.mGuiArea->getHeight(), 1.F);
-    item.mTransform->Rotate(
-        VistaAxisAndAngle(VistaVector3D(0.0, 1.0, 0.0), -glm::pi<float>() / 2.F));
-    item.mGuiArea->addItem(item.mGuiItem.get());
-    item.mGuiArea->setUseLinearDepthBuffer(true);
-    item.mGuiNode = pSG->NewOpenGLNode(item.mTransform, item.mGuiArea.get());
-
-    mInputManager->registerSelectable(item.mGuiNode);
-
-    VistaOpenSGMaterialTools::SetSortKeyOnSubtree(
-        item.mGuiNode, static_cast<int>(cs::utils::DrawOrder::eTransparentItems));
-
-    item.mGuiItem->setCursorChangeCallback(
-        [](cs::gui::Cursor c) { cs::core::GuiManager::setCursor(c); });
-    item.mGuiItem->waitForFinishedLoading();
-    item.mGuiItem->callJavascript("set_content", settings.mHTML);
-  }
+  logger().info("Loading done.");
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -165,6 +144,102 @@ void Plugin::update() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Plugin::deInit() {
+  unload(mPluginSettings);
+
+  mAllSettings->onLoad().disconnect(mOnLoadConnection);
+  mAllSettings->onSave().disconnect(mOnSaveConnection);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Plugin::onLoad() {
+
+  auto oldSettings = mPluginSettings;
+
+  // Read settings from JSON.
+  from_json(mAllSettings->mPlugins.at("csp-custom-web-ui"), mPluginSettings);
+
+  logger().warn("{}", __LINE__);
+  // We simply reload everything if anything changed.
+  if (mPluginSettings != oldSettings) {
+
+    logger().warn("{}", __LINE__);
+
+    // First remove everything we created before.
+    unload(oldSettings);
+
+    // Then add all new sidebar tabs.
+    for (auto const& settings : mPluginSettings.mSideBarItems) {
+      mGuiManager->addPluginTabToSideBar(settings.mName, settings.mIcon, settings.mHTML);
+    }
+
+    // Then add all space items.
+    auto pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
+    for (auto const& settings : mPluginSettings.mSpaceItems) {
+      mSpaceItems.resize(mSpaceItems.size() + 1);
+      SpaceItem& item = mSpaceItems.back();
+
+      item.mAnchor = std::make_shared<cs::scene::CelestialAnchorNode>(
+          pSG->GetRoot(), pSG->GetNodeBridge(), "", settings.mCenter, settings.mFrame);
+      item.mScale = settings.mScale;
+
+      glm::dvec2 lngLat(settings.mLongitude, settings.mLatitude);
+      lngLat        = cs::utils::convert::toRadians(lngLat);
+      double height = 0.0;
+      auto   parent = mSolarSystem->getBody(settings.mCenter);
+      if (parent) {
+        height = parent->getHeight(lngLat);
+      }
+      auto radii = mSolarSystem->getRadii(settings.mCenter);
+      item.mAnchor->setAnchorPosition(
+          cs::utils::convert::toCartesian(lngLat, radii[0], radii[0], height));
+
+      mSolarSystem->registerAnchor(item.mAnchor);
+
+      item.mGuiArea =
+          std::make_unique<cs::gui::WorldSpaceGuiArea>(settings.mWidth, settings.mHeight);
+      item.mGuiItem = std::make_unique<cs::gui::GuiItem>(
+          "file://../share/resources/gui/custom-web-ui-simple.html");
+
+      item.mTransform.reset(pSG->NewTransformNode(item.mAnchor.get()));
+      item.mTransform->Scale(
+          0.001F * item.mGuiArea->getWidth(), 0.001F * item.mGuiArea->getHeight(), 1.F);
+      item.mTransform->Rotate(
+          VistaAxisAndAngle(VistaVector3D(0.0, 1.0, 0.0), -glm::pi<float>() / 2.F));
+      item.mGuiArea->addItem(item.mGuiItem.get());
+      item.mGuiArea->setUseLinearDepthBuffer(true);
+      item.mGuiNode.reset(pSG->NewOpenGLNode(item.mTransform.get(), item.mGuiArea.get()));
+
+      mInputManager->registerSelectable(item.mGuiNode.get());
+
+      VistaOpenSGMaterialTools::SetSortKeyOnSubtree(
+          item.mGuiNode.get(), static_cast<int>(cs::utils::DrawOrder::eTransparentItems));
+
+      item.mGuiItem->setCursorChangeCallback(
+          [](cs::gui::Cursor c) { cs::core::GuiManager::setCursor(c); });
+      item.mGuiItem->waitForFinishedLoading();
+      item.mGuiItem->callJavascript("set_content", settings.mHTML);
+    }
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Plugin::unload(Settings const& pluginSettings) {
+  // Remove all sidebar tabs.
+  for (auto const& settings : pluginSettings.mSideBarItems) {
+    mGuiManager->removePluginTab(settings.mName);
+  }
+
+  // Remove all space items.
+  auto pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
+  for (auto const& item : mSpaceItems) {
+    pSG->GetRoot()->DisconnectChild(item.mAnchor.get());
+    mSolarSystem->unregisterAnchor(item.mAnchor);
+    mInputManager->unregisterSelectable(item.mGuiNode.get());
+  }
+
+  mSpaceItems.clear();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
