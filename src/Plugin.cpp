@@ -20,8 +20,6 @@
 #include <VistaKernel/VistaSystem.h>
 #include <VistaKernelOpenSGExt/VistaOpenSGMaterialTools.h>
 
-#include <memory>
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 EXPORT_FN cs::core::PluginBase* create() {
@@ -40,13 +38,13 @@ namespace csp::customwebui {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void from_json(nlohmann::json const& j, Plugin::Settings::SideBarItem& o) {
+void from_json(nlohmann::json const& j, Plugin::Settings::GuiItem& o) {
   cs::core::Settings::deserialize(j, "name", o.mName);
   cs::core::Settings::deserialize(j, "icon", o.mIcon);
   cs::core::Settings::deserialize(j, "html", o.mHTML);
 }
 
-void to_json(nlohmann::json& j, Plugin::Settings::SideBarItem const& o) {
+void to_json(nlohmann::json& j, Plugin::Settings::GuiItem const& o) {
   cs::core::Settings::serialize(j, "name", o.mName);
   cs::core::Settings::serialize(j, "icon", o.mIcon);
   cs::core::Settings::serialize(j, "html", o.mHTML);
@@ -82,17 +80,19 @@ void to_json(nlohmann::json& j, Plugin::Settings::SpaceItem const& o) {
 
 void from_json(nlohmann::json const& j, Plugin::Settings& o) {
   cs::core::Settings::deserialize(j, "sidebar-items", o.mSideBarItems);
+  cs::core::Settings::deserialize(j, "window-items", o.mWindowItems);
   cs::core::Settings::deserialize(j, "space-items", o.mSpaceItems);
 }
 
 void to_json(nlohmann::json& j, Plugin::Settings const& o) {
   cs::core::Settings::serialize(j, "sidebar-items", o.mSideBarItems);
+  cs::core::Settings::serialize(j, "window-items", o.mWindowItems);
   cs::core::Settings::serialize(j, "space-items", o.mSpaceItems);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool Plugin::Settings::SideBarItem::operator==(Plugin::Settings::SideBarItem const& other) const {
+bool Plugin::Settings::GuiItem::operator==(Plugin::Settings::GuiItem const& other) const {
   return mName == other.mName && mIcon == other.mIcon && mHTML == other.mHTML;
 }
 
@@ -103,7 +103,8 @@ bool Plugin::Settings::SpaceItem::operator==(Plugin::Settings::SpaceItem const& 
 }
 
 bool Plugin::Settings::operator==(Plugin::Settings const& other) const {
-  return mSideBarItems == other.mSideBarItems && mSpaceItems == other.mSpaceItems;
+  return mSideBarItems == other.mSideBarItems && mWindowItems == other.mWindowItems &&
+         mSpaceItems == other.mSpaceItems;
 }
 
 bool Plugin::Settings::operator!=(Plugin::Settings const& other) const {
@@ -116,9 +117,10 @@ void Plugin::init() {
 
   logger().info("Loading plugin...");
 
-  // First parse the settings.
+  // Call onLoad whenever the settings are reloaded.
   mOnLoadConnection = mAllSettings->onLoad().connect([this]() { onLoad(); });
 
+  // Store the current settings on save.
   mOnSaveConnection = mAllSettings->onSave().connect(
       [this]() { mAllSettings->mPlugins["csp-custom-web-ui"] = mPluginSettings; });
 
@@ -133,6 +135,7 @@ void Plugin::init() {
 void Plugin::update() {
   double simulationTime(mTimeControl->pSimulationTime.get());
 
+  // Rotate the space items to face the observer.
   for (auto& item : mSpaceItems) {
     cs::core::SolarSystem::scaleRelativeToObserver(*item.mAnchor, mSolarSystem->getObserver(),
         simulationTime, item.mScale, mAllSettings->mGraphics.pWidgetScale.get());
@@ -144,6 +147,8 @@ void Plugin::update() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Plugin::deInit() {
+
+  // Remove all items.
   unload(mPluginSettings);
 
   mAllSettings->onLoad().disconnect(mOnLoadConnection);
@@ -154,16 +159,14 @@ void Plugin::deInit() {
 
 void Plugin::onLoad() {
 
+  // Store current settings to check whether anything changed due to loading.
   auto oldSettings = mPluginSettings;
 
   // Read settings from JSON.
   from_json(mAllSettings->mPlugins.at("csp-custom-web-ui"), mPluginSettings);
 
-  logger().warn("{}", __LINE__);
   // We simply reload everything if anything changed.
   if (mPluginSettings != oldSettings) {
-
-    logger().warn("{}", __LINE__);
 
     // First remove everything we created before.
     unload(oldSettings);
@@ -173,11 +176,52 @@ void Plugin::onLoad() {
       mGuiManager->addPluginTabToSideBar(settings.mName, settings.mIcon, settings.mHTML);
     }
 
+    // Then add all window items.
+    for (size_t i(0); i < mPluginSettings.mWindowItems.size(); ++i) {
+      auto const& settings = mPluginSettings.mWindowItems[i];
+
+      std::string callback = "customWebUI.toggleWindow" + std::to_string(i);
+      std::string id       = "customWebUIWindow" + std::to_string(i);
+
+      // Register a callback to toggle the window.
+      mGuiManager->getGui()->registerCallback(callback,
+          "Toggles the custom window '" + settings.mName + "'.", std::function([this, id]() {
+            mGuiManager->getGui()->executeJavascript(
+                "document.querySelector('#" + id + "').classList.toggle('visible')");
+          }));
+
+      // Add a timeline button to toggle the window.
+      mGuiManager->addTimelineButton(settings.mName, settings.mIcon, callback);
+
+      // Add the window itself.
+      std::string windowMarkup = R"(
+        <div id="%ID%" class="draggable-window resizable-window">
+          <div class="window-header">
+            <span class="window-title"><i class="material-icons">%ICON%</i><span>%NAME%</span></span>
+            <a class="btn light-glass" data-action="close" data-toggle="tooltip" title="Close">
+              <i class="material-icons">close</i>
+            </a>
+          </div>
+          <div class="window-content">
+            %CONTENT%
+          </div>
+        </div>
+      )";
+
+      cs::utils::replaceString(windowMarkup, "%ID%", id);
+      cs::utils::replaceString(windowMarkup, "%ICON%", settings.mIcon);
+      cs::utils::replaceString(windowMarkup, "%NAME%", settings.mName);
+      cs::utils::replaceString(windowMarkup, "%CONTENT%", settings.mHTML);
+
+      mGuiManager->getGui()->callJavascript("CosmoScout.gui.addHtml", windowMarkup);
+      mGuiManager->getGui()->callJavascript("CosmoScout.gui.initDraggableWindows");
+    }
+
     // Then add all space items.
     auto pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
     for (auto const& settings : mPluginSettings.mSpaceItems) {
-      mSpaceItems.resize(mSpaceItems.size() + 1);
-      SpaceItem& item = mSpaceItems.back();
+
+      SpaceItem item;
 
       item.mAnchor = std::make_shared<cs::scene::CelestialAnchorNode>(
           pSG->GetRoot(), pSG->GetNodeBridge(), "", settings.mCenter, settings.mFrame);
@@ -218,7 +262,10 @@ void Plugin::onLoad() {
       item.mGuiItem->setCursorChangeCallback(
           [](cs::gui::Cursor c) { cs::core::GuiManager::setCursor(c); });
       item.mGuiItem->waitForFinishedLoading();
-      item.mGuiItem->callJavascript("set_content", settings.mHTML);
+      item.mGuiItem->callJavascript("setContent", settings.mHTML);
+
+      // Store it.
+      mSpaceItems.emplace_back(std::move(item));
     }
   }
 }
@@ -231,6 +278,15 @@ void Plugin::unload(Settings const& pluginSettings) {
     mGuiManager->removePluginTab(settings.mName);
   }
 
+  // Remove all window items.
+  for (size_t i(0); i < pluginSettings.mWindowItems.size(); ++i) {
+    mGuiManager->getGui()->unregisterCallback("customWebUI.toggleWindow" + std::to_string(i));
+    mGuiManager->removeTimelineButton(pluginSettings.mWindowItems[i].mName);
+
+    std::string id = "customWebUIWindow" + std::to_string(i);
+    mGuiManager->getGui()->executeJavascript("document.querySelector('#" + id + "').remove()");
+  }
+
   // Remove all space items.
   auto pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
   for (auto const& item : mSpaceItems) {
@@ -238,7 +294,6 @@ void Plugin::unload(Settings const& pluginSettings) {
     mSolarSystem->unregisterAnchor(item.mAnchor);
     mInputManager->unregisterSelectable(item.mGuiNode.get());
   }
-
   mSpaceItems.clear();
 }
 

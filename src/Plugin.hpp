@@ -27,15 +27,15 @@ class GuiItem;
 
 namespace csp::customwebui {
 
-/// This plugin allows to add custom HTML content to the sidebar or to any position in space.
+/// This plugin allows to add custom HTML content to a sidebar-tob, to a floating window or to any
+/// position in space.
 class Plugin : public cs::core::PluginBase {
  public:
   struct Settings {
 
-    /// These items will be added to the sidebar.
-    struct SideBarItem {
+    struct GuiItem {
 
-      /// The name of the sidebar tab.
+      /// The name of the sidebar tab or window.
       std::string mName;
 
       /// Material icon, see https://material.io/resources/icons for options.
@@ -44,10 +44,9 @@ class Plugin : public cs::core::PluginBase {
       /// The actual HTML code to add. You can use an <iframe> for example.
       std::string mHTML;
 
-      bool operator==(SideBarItem const& other) const;
+      bool operator==(GuiItem const& other) const;
     };
 
-    /// These items will be placed somewhere on a celestial body.
     struct SpaceItem {
 
       /// The SPICE center and frame names.
@@ -72,8 +71,15 @@ class Plugin : public cs::core::PluginBase {
       bool operator==(SpaceItem const& other) const;
     };
 
-    std::vector<SideBarItem> mSideBarItems;
-    std::vector<SpaceItem>   mSpaceItems;
+    /// These items will be added to the sidebar.
+    std::vector<GuiItem> mSideBarItems;
+
+    /// These items will be added as draggable windows. They will be hidden initially but there will
+    /// be buttons beneath the timeline to reveal them.
+    std::vector<GuiItem> mWindowItems;
+
+    /// These items will be placed somewhere on a celestial body.
+    std::vector<SpaceItem> mSpaceItems;
 
     bool operator!=(Settings const& other) const;
     bool operator==(Settings const& other) const;
