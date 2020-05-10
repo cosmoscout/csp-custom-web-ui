@@ -223,10 +223,13 @@ void Plugin::onLoad() {
 
       SpaceItem item;
 
+      // Create a CelestialAnchorNode to attach our gui element to.
       item.mAnchor = std::make_shared<cs::scene::CelestialAnchorNode>(
           pSG->GetRoot(), pSG->GetNodeBridge(), "", settings.mCenter, settings.mFrame);
       item.mScale = settings.mScale;
+      mSolarSystem->registerAnchor(item.mAnchor);
 
+      // Compute the cartesian position of the CelestialAnchorNode.
       glm::dvec2 lngLat(settings.mLongitude, settings.mLatitude);
       lngLat        = cs::utils::convert::toRadians(lngLat);
       double height = 0.0;
@@ -238,27 +241,28 @@ void Plugin::onLoad() {
       item.mAnchor->setAnchorPosition(
           cs::utils::convert::toCartesian(lngLat, radii[0], radii[0], height));
 
-      mSolarSystem->registerAnchor(item.mAnchor);
-
+      // Create the WorldSpaceGuiArea for the gui element.
       item.mGuiArea =
           std::make_unique<cs::gui::WorldSpaceGuiArea>(settings.mWidth, settings.mHeight);
-      item.mGuiItem = std::make_unique<cs::gui::GuiItem>(
-          "file://../share/resources/gui/custom-web-ui-simple.html");
+      item.mGuiArea->setUseLinearDepthBuffer(true);
 
+      // Create a TransformNode to attach the gui element to.
       item.mTransform.reset(pSG->NewTransformNode(item.mAnchor.get()));
       item.mTransform->Scale(
           0.001F * item.mGuiArea->getWidth(), 0.001F * item.mGuiArea->getHeight(), 1.F);
       item.mTransform->Rotate(
           VistaAxisAndAngle(VistaVector3D(0.0, 1.0, 0.0), -glm::pi<float>() / 2.F));
-      item.mGuiArea->addItem(item.mGuiItem.get());
-      item.mGuiArea->setUseLinearDepthBuffer(true);
+
+      // Attach an OpenGLNode to the TransformNode containing our WorldSpaceGuiArea.
       item.mGuiNode.reset(pSG->NewOpenGLNode(item.mTransform.get(), item.mGuiArea.get()));
-
       mInputManager->registerSelectable(item.mGuiNode.get());
-
       VistaOpenSGMaterialTools::SetSortKeyOnSubtree(
           item.mGuiNode.get(), static_cast<int>(cs::utils::DrawOrder::eTransparentItems));
 
+      // Add the GuiItem to our WorldSpaceGuiArea.
+      item.mGuiItem = std::make_unique<cs::gui::GuiItem>(
+          "file://../share/resources/gui/custom-web-ui-simple.html");
+      item.mGuiArea->addItem(item.mGuiItem.get());
       item.mGuiItem->setCursorChangeCallback(
           [](cs::gui::Cursor c) { cs::core::GuiManager::setCursor(c); });
       item.mGuiItem->waitForFinishedLoading();
