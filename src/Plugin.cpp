@@ -195,15 +195,17 @@ void Plugin::onLoad() {
 
       // Add the window itself.
       std::string windowMarkup = R"(
-        <div id="%ID%" class="draggable-window resizable-window">
-          <div class="window-header">
-            <span class="window-title"><i class="material-icons">%ICON%</i><span>%NAME%</span></span>
-            <a class="btn light-glass" data-action="close" data-toggle="tooltip" title="Close">
-              <i class="material-icons">close</i>
-            </a>
-          </div>
-          <div class="window-content">
-            %CONTENT%
+        <div id="%ID%" class="draggable-window resizable-window auto-hide-header">
+          <div class="window-wrapper">
+            <div class="window-header">
+              <span class="window-title"><i class="material-icons">%ICON%</i><span>%NAME%</span></span>
+              <a class="btn light-glass" data-action="close" data-toggle="tooltip" title="Close">
+                <i class="material-icons">close</i>
+              </a>
+            </div>
+            <div class="window-content">
+              %CONTENT%
+            </div>
           </div>
         </div>
       )";
