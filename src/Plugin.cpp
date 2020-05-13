@@ -250,7 +250,6 @@ void Plugin::onLoad() {
 
       // Create a TransformNode to attach the gui element to.
       item.mTransform.reset(pSG->NewTransformNode(item.mAnchor.get()));
-      item.mTransform->Scale(
       item.mTransform->Scale(0.001F * static_cast<float>(item.mGuiArea->getWidth()),
           0.001F * static_cast<float>(item.mGuiArea->getHeight()), 1.F);
       item.mTransform->Rotate(
