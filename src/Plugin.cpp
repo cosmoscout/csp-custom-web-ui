@@ -220,7 +220,7 @@ void Plugin::onLoad() {
     }
 
     // Then add all space items.
-    auto pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
+    auto* pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
     for (auto const& settings : mPluginSettings.mSpaceItems) {
 
       SpaceItem item;
@@ -251,7 +251,8 @@ void Plugin::onLoad() {
       // Create a TransformNode to attach the gui element to.
       item.mTransform.reset(pSG->NewTransformNode(item.mAnchor.get()));
       item.mTransform->Scale(
-          0.001F * item.mGuiArea->getWidth(), 0.001F * item.mGuiArea->getHeight(), 1.F);
+      item.mTransform->Scale(0.001F * static_cast<float>(item.mGuiArea->getWidth()),
+          0.001F * static_cast<float>(item.mGuiArea->getHeight()), 1.F);
       item.mTransform->Rotate(
           VistaAxisAndAngle(VistaVector3D(0.0, 1.0, 0.0), -glm::pi<float>() / 2.F));
 
@@ -294,7 +295,7 @@ void Plugin::unload(Settings const& pluginSettings) {
   }
 
   // Remove all space items.
-  auto pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
+  auto* pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
   for (auto const& item : mSpaceItems) {
     pSG->GetRoot()->DisconnectChild(item.mAnchor.get());
     mSolarSystem->unregisterAnchor(item.mAnchor);
